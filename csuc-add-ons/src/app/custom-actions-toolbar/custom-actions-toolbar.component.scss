@@ -1,0 +1,94 @@
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actions-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.actions-ribbon {
+  display: flex;
+  flex-flow: row wrap;
+  gap: 4px;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--sys-on-surface-variant, #3f4948);
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.action-btn:hover {
+  background: color-mix(in srgb, var(--sys-on-surface-variant, #3f4948) 8%, transparent);
+}
+
+.action-btn:active {
+  background: color-mix(in srgb, var(--sys-on-surface-variant, #3f4948) 12%, transparent);
+}
+
+.action-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+
+.action-label {
+  white-space: nowrap;
+}
+
+.action-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 12px 12px;
+}
+
+.action-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--sys-on-surface-variant, #3f4948);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.action-link a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.action-link a:hover {
+  color: var(--sys-primary, #006a68);
+}
+
+.link-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: currentColor;
+}

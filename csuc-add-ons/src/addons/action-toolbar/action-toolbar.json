@@ -1,0 +1,45 @@
+{
+  "ariaLabel": "Accions del registre",
+  "baseUrl": "https://csuc-gepa.primo.exlibrisgroup.com",
+  "actions": [
+    {
+      "label": "Demanar document",
+      "url": "https://request.bnc.cat/peticio/crear/{pnx.control.sourcerecordid[0]}",
+      "icon": "local_library",
+      "target": "_blank"
+    },
+    {
+      "label": "Demanar reproducció",
+      "url": "https://www.bnc.cat/Serveis/Reproduccio-de-documents/Sol-licitud-de-reproduccio-de-documents-i-autoritzacio-d-us-public?numreg={pnx.control.sourcerecordid[0]}&mattype={pnx.display.type[0]}",
+      "icon": "search",
+      "target": "_blank"
+    },
+    {
+      "label": "Préstec interbibliotecari",
+      "url": "https://pi.csuc.cat/index.php?bibid={recordId}&tipusmat={pnx.display.type[0]}&doi={pnx.addata.doi[0]}&aulast={pnx.sort.author[0]}&isbn={pnx.addata.isbn[0]}&issn={pnx.addata.issn[0]}&title={pnx.display.title[0]}&atitle={pnx.addata.atitle[0]}&volume={pnx.addata.volume[0]}&issue={pnx.addata.issue[0]}&pages={pnx.addata.pages[0]}&lugar_pub={pnx.display.place[0]}&date={pnx.sort.creationdate[0]}&edition={pnx.display.edition[0]}&editor={pnx.display.publisher[0]}",
+      "icon": "send",
+      "target": "_blank"
+    },
+    {
+      "label": "Registre MARC",
+      "url": "{baseUrl}/discovery/sourceRecord?vid={vid}&docId={docId}",
+      "icon": "description",
+      "target": "_blank",
+      "requires": "recordId"
+    }
+  ],
+  "links": [
+    {
+      "label": "Condicions i funcionament del servei de petició de documents de la BC",
+      "url": "http://www.bnc.cat/Serveis/Peticio-de-documents",
+      "icon": "help",
+      "target": "_blank"
+    },
+    {
+      "label": "Temps d'espera",
+      "url": "http://www.bnc.cat/Serveis/Peticio-de-documents/Temps-d-espera",
+      "icon": "schedule",
+      "target": "_blank"
+    }
+  ]
+}
