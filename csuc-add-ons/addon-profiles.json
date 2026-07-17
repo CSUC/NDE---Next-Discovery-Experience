@@ -1,0 +1,9 @@
+{
+  "addons": {
+    "action-toolbar": {
+      "buildName": "action-toolbar",
+      "remoteName": "ActionsToolbar",
+      "exposedModule": "./ActionsToolbar"
+    }
+  }
+}
