@@ -147,7 +147,6 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `{vid}`: paràmetre `vid` de la URL actual.
 - `{lang}`: paràmetre `lang` de la URL actual.
 - `{pnx.seccio.camp[index]}`: qualsevol camp PNX. Exemple: `{pnx.display.title[0]}`.
-- `{record.camp}`: qualsevol camp disponible dins l'objecte de registre.
 - `{raw:pnx.display.title[0]}`: valor sense `encodeURIComponent`.
 
 ## Icones disponibles
@@ -155,7 +154,6 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 Les icones es defineixen a [`action-icons.ts`](../../app/custom-actions-toolbar/action-icons.ts).
 
 Valors disponibles:
-
 - `bookmark`
 - `content_copy`
 - `description`
