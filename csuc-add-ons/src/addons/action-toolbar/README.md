@@ -133,10 +133,8 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `label`: text visible. Obligatori.
 - `url`: URL de destinació. Obligatori.
 - `icon`: icona. Opcional. Si no existeix, s'usa `link`.
-- `target`: `_blank`, `_self`, `_parent` o `_top`. Per defecte: `_blank`.
-- `tooltip`: tooltip opcional.
-- `ariaLabel`: etiqueta accessible alternativa.
-- `id`: identificador intern opcional.
+- `target`: `_blank`, `_self`. Per defecte: `_blank`.
+- `tooltip`: tooltip opcional. Per defecte s'usa `label`.
 
 ## Tokens disponibles
 
