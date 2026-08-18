@@ -319,7 +319,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       return [];
     }
 
-    const pnxLinks = this.pnxDeliveryLinks(context);
+    const pnxLinks = this.pnxLinkCandidates(context);
     if (pnxLinks.length === 0) {
       return [];
     }
@@ -377,15 +377,38 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       definition.containsAny.some(text => linkUrl.includes(text.toLowerCase()));
   }
 
-  private pnxDeliveryLinks(context: RecordLike): RecordLike[] {
+  private pnxLinkCandidates(context: RecordLike): RecordLike[] {
     const pnx = this.asRecord(context['pnx']);
     const delivery = this.asRecord(pnx?.['delivery']);
-    const rawLinks = delivery?.['link'];
-    const links = Array.isArray(rawLinks) ? rawLinks : rawLinks ? [rawLinks] : [];
-
-    return links
+    const rawDeliveryLinks = delivery?.['link'];
+    const deliveryLinks = (Array.isArray(rawDeliveryLinks) ? rawDeliveryLinks : rawDeliveryLinks ? [rawDeliveryLinks] : [])
       .map(link => this.asRecord(link))
       .filter((link): link is RecordLike => Boolean(link));
+    const addata = this.asRecord(pnx?.['addata']);
+    const rawUrls = addata?.['url'];
+    const addataLinks = (Array.isArray(rawUrls) ? rawUrls : rawUrls ? [rawUrls] : [])
+      .map(url => this.asText(url))
+      .filter(linkURL => linkURL.length > 0)
+      .map(linkURL => ({ linkType: 'linktorsrc', linkURL }));
+
+    return this.uniqueLinkCandidates([...deliveryLinks, ...addataLinks]);
+  }
+
+  private uniqueLinkCandidates(links: RecordLike[]): RecordLike[] {
+    const seen = new Set<string>();
+    const uniqueLinks: RecordLike[] = [];
+
+    for (const link of links) {
+      const linkUrl = this.asText(link['linkURL']);
+      if (!linkUrl || seen.has(linkUrl)) {
+        continue;
+      }
+
+      seen.add(linkUrl);
+      uniqueLinks.push(link);
+    }
+
+    return uniqueLinks;
   }
 
   private resolvedUrl(item: ActionConfig | ResolvedActionConfig): string {

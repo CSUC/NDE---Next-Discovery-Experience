@@ -179,6 +179,37 @@ describe('CustomActionsToolbarComponent', () => {
     expect(component.visibleActions[1].url).toBe('https://copiescofre.bnc.cat/documents/view/abc');
   });
 
+  it('should generate action buttons from pnx.addata.url when delivery links are not readable objects', async () => {
+    await configure({
+      linkActions: [
+        {
+          label: 'Text complet',
+          containsAny: ['mdc', 'arca'],
+          icon: 'open_in_new'
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          addata: {
+            url: ['https://arca.bnc.cat/arcabib_pro/ca/consulta/registro.do?id=2653']
+          },
+          delivery: {
+            link: ['[object Object]', '[object Object]']
+          }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.length).toBe(1);
+    expect(component.visibleActions[0].label).toBe('Text complet');
+    expect(component.visibleActions[0].url).toBe('https://arca.bnc.cat/arcabib_pro/ca/consulta/registro.do?id=2653');
+  });
+
   it('should ignore pnx.delivery.link entries that are not linktorsrc', async () => {
     await configure({
       linkActions: [
