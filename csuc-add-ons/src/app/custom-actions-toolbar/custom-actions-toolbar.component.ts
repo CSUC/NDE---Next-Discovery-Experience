@@ -1,9 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, Inject, Input, OnDestroy, OnInit, Optional } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { Subscription } from 'rxjs';
+import { BehaviorSubject, combineLatest, Observable, of, Subscription } from 'rxjs';
+import { map, shareReplay, startWith, switchMap } from 'rxjs/operators';
 import { ICON_PATHS } from './action-icons';
-import { selectFullDisplayRecord } from '../utils/fullDisplayRecordSelector';
+import { selectFullDisplayRecordId, selectSearchRecordById } from '../utils/fullDisplayRecordSelector';
+import { SHELL_ROUTER } from '../injection-tokens';
 
 interface ActionConfig {
   id: string;
@@ -17,6 +20,14 @@ interface ActionConfig {
 }
 
 interface LinkConfig extends ActionConfig {}
+interface ResolvedActionConfig extends ActionConfig { resolvedUrl: string; }
+interface ResolvedLinkConfig extends LinkConfig { resolvedUrl: string; }
+
+interface ToolbarViewModel {
+  isFullDisplayPage: boolean;
+  actions: ResolvedActionConfig[];
+  links: ResolvedLinkConfig[];
+}
 
 interface RawItemConfig {
   id?: unknown;
@@ -69,45 +80,90 @@ type RecordLike = Record<string, any>;
 })
 export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
   @Input() set hostComponent(value: unknown) {
-    this.hostRecord = this.extractRecordFromHost(value);
-    this.updateVisibleActions();
+    const record = this.extractRecordFromHost(value);
+    this.debug('hostComponent updated', this.recordDebugInfo(record));
+    this.hostRecordSubject.next(value);
   }
 
   public ariaLabel = 'Accions del registre';
   public visibleActions: ActionConfig[] = [];
   public visibleLinks: LinkConfig[] = [];
+  public readonly vm$: Observable<ToolbarViewModel>;
 
   private readonly actionDefinitions: ActionConfig[];
   private readonly linkDefinitions: LinkConfig[];
   private readonly params: ToolbarParameters;
-  private hostRecord: unknown;
-  private fullDisplayRecord: unknown;
-  private recordSubscription?: Subscription;
+  private readonly hostRecordSubject = new BehaviorSubject<unknown>(null);
+  private readonly urlSubject = new BehaviorSubject<string>(window.location.href);
+  private readonly emptyViewModel: ToolbarViewModel = { isFullDisplayPage: false, actions: [], links: [] };
+  private readonly emptyContext: RecordLike = { baseUrl: '', baseurl: '', origin: '', docId: '', lang: '', pnx: null, record: null, recordId: '', vid: '' };
+  private lastContext: RecordLike = this.emptyContext;
+  private routeSubscription?: Subscription;
+  private urlPollId?: ReturnType<typeof window.setInterval>;
+  private destroyed = false;
 
   constructor(
     @Optional() @Inject('MODULE_PARAMETERS') moduleParameters: ToolbarParameters | null,
-    @Optional() private store: Store | null
+    @Optional() private store: Store | null,
+    @Optional() @Inject(SHELL_ROUTER) private shellRouter: Router | null
   ) {
     this.params = moduleParameters ?? {};
     this.ariaLabel = this.asText(this.params.ariaLabel) || this.asText(this.params.buttonLabel) || this.ariaLabel;
     this.actionDefinitions = this.readActions(this.params);
     this.linkDefinitions = this.readLinks(this.params);
-    this.updateVisibleActions();
+
+    const hostRecord$ = this.hostRecordSubject.pipe(
+      map(hostComponent => this.extractRecordFromHost(hostComponent) ?? hostComponent),
+      startWith(null),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+    const selectedRecordId$ = this.store
+      ? this.store.select(selectFullDisplayRecordId).pipe(startWith(null))
+      : of(null);
+    const activeRecordId$ = combineLatest([selectedRecordId$, hostRecord$, this.urlSubject]).pipe(
+      map(([selectedRecordId, hostRecord, url]) =>
+        this.normalizeDocId(selectedRecordId) || this.recordIdFromRecord(hostRecord) || this.docIdFromUrl(url)
+      ),
+      startWith(''),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+    const storeRecord$ = this.store
+      ? activeRecordId$.pipe(
+        switchMap(recordId => recordId
+          ? this.store!.select(selectSearchRecordById(recordId)).pipe(startWith(null))
+          : of(null)
+        )
+      )
+      : of(null);
+
+    this.vm$ = combineLatest([
+      activeRecordId$,
+      storeRecord$,
+      hostRecord$,
+      this.urlSubject
+    ]).pipe(
+      map(([activeRecordId, storeRecord, hostRecord, url]) => this.buildViewModel(activeRecordId, storeRecord, hostRecord, url)),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
   }
 
   public ngOnInit(): void {
-    if (!this.store) {
-      return;
-    }
-
-    this.recordSubscription = this.store.select(selectFullDisplayRecord).subscribe(record => {
-      this.fullDisplayRecord = record;
-      this.updateVisibleActions();
+    this.debug('component init', { hasStore: Boolean(this.store), selector: 'nde-search-result-item-container' });
+    this.routeSubscription = this.shellRouter?.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        this.refreshUrl();
+      }
     });
+    this.urlPollId = window.setInterval(() => this.refreshUrl(), 250);
   }
 
   public ngOnDestroy(): void {
-    this.recordSubscription?.unsubscribe();
+    this.destroyed = true;
+    this.routeSubscription?.unsubscribe();
+
+    if (this.urlPollId !== undefined) {
+      window.clearInterval(this.urlPollId);
+    }
   }
 
   public iconPath(icon: string | undefined): string {
@@ -122,19 +178,15 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return link.id;
   }
 
-  public get isFullDisplayPage(): boolean {
-    return window.location.href.includes('/nde/fulldisplay');
-  }
-
-  public resolveUrl(template: string): string {
+  public resolveUrl(template: string, context: RecordLike = this.lastContext): string {
     return template.replace(/\{(raw:)?([^{}]+)\}/g, (_match: string, rawPrefix: string | undefined, token: string) => {
       const raw = Boolean(rawPrefix);
-      return this.resolveToken(token.trim(), raw);
+      return this.resolveToken(token.trim(), raw, context);
     });
   }
 
-  public execAction(action: ActionConfig): void {
-    const url = this.resolveUrl(action.url);
+  public execAction(action: ActionConfig | ResolvedActionConfig): void {
+    const url = this.resolvedUrl(action);
 
     if (!url) {
       return;
@@ -151,18 +203,96 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     }
   }
 
-  private updateVisibleActions(): void {
-    this.visibleActions = this.filterVisibleItems(this.actionDefinitions);
-    this.visibleLinks = this.filterVisibleItems(this.linkDefinitions);
+  public execLink(link: LinkConfig | ResolvedLinkConfig, event: MouseEvent): void {
+    const url = this.resolvedUrl(link);
+
+    if (!url) {
+      event.preventDefault();
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (link.target === '_self') {
+      window.location.assign(url);
+      return;
+    }
+
+    const opened = window.open(url, link.target, 'noopener,noreferrer');
+    if (opened) {
+      opened.opener = null;
+    }
   }
 
-  private filterVisibleItems<T extends ActionConfig>(items: T[]): T[] {
-    return items.filter(item => {
-      if (!item.requires) {
-        return true;
-      }
-      return this.asText(this.readPath(this.tokenContext(), item.requires)) !== '';
+  private buildViewModel(activeRecordId: unknown, storeRecord: unknown, hostRecord: unknown, url: string): ToolbarViewModel {
+    const activeDocId = this.normalizeDocId(activeRecordId) || this.recordIdFromRecord(hostRecord) || this.docIdFromUrl(url);
+    const record = this.selectCurrentRecord(activeDocId, storeRecord, hostRecord);
+    const context = this.tokenContext(record, activeDocId, url);
+    const actions = this.resolveVisibleItems<ResolvedActionConfig>(this.actionDefinitions, context);
+    const links = this.resolveVisibleItems<ResolvedLinkConfig>(this.linkDefinitions, context);
+
+    this.lastContext = context;
+    this.visibleActions = actions;
+    this.visibleLinks = links;
+    this.debug('view model updated', {
+      activeDocId,
+      storeRecord: this.recordDebugInfo(storeRecord),
+      hostRecord: this.recordDebugInfo(hostRecord),
+      record: this.recordDebugInfo(record),
+      actions: actions.map(action => action.resolvedUrl),
+      links: links.map(link => link.resolvedUrl)
     });
+
+    return {
+      isFullDisplayPage: url.includes('/nde/fulldisplay'),
+      actions,
+      links
+    };
+  }
+
+  private selectCurrentRecord(activeDocId: string, storeRecord: unknown, hostRecord: unknown): RecordLike | null {
+    const stateRecord = this.asRecord(storeRecord);
+    if (stateRecord) {
+      return stateRecord;
+    }
+
+    if (!activeDocId) {
+      return this.asRecord(hostRecord);
+    }
+
+    if (this.recordMatchesDocId(hostRecord, activeDocId)) {
+      return this.asRecord(hostRecord);
+    }
+
+    return null;
+  }
+
+  private resolveVisibleItems<T extends ActionConfig>(items: ActionConfig[], context: RecordLike): T[] {
+    return items
+      .filter(item => !item.requires || this.asText(this.readPath(context, item.requires)) !== '')
+      .map(item => ({
+        ...item,
+        resolvedUrl: this.resolveUrl(item.url, context)
+      } as unknown as T));
+  }
+
+  private resolvedUrl(item: ActionConfig | ResolvedActionConfig): string {
+    return 'resolvedUrl' in item ? item.resolvedUrl : this.resolveUrl(item.url);
+  }
+
+  private refreshUrl(): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    const url = window.location.href;
+    if (url !== this.urlSubject.value) {
+      this.urlSubject.next(url);
+    }
   }
 
   private readActions(params: ToolbarParameters): ActionConfig[] {
@@ -372,9 +502,8 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     ];
   }
 
-  private resolveToken(token: string, raw: boolean): string {
+  private resolveToken(token: string, raw: boolean, context: RecordLike): string {
     const tokenKey = token.toLowerCase();
-    const context = this.tokenContext();
 
     if (tokenKey === 'baseurl' || tokenKey === 'origin') {
       return this.baseUrl();
@@ -385,30 +514,71 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return raw ? text : encodeURIComponent(text);
   }
 
-  private tokenContext(): RecordLike {
-    const pnx = this.currentPnx();
-    const recordId = this.firstText(pnx?.['control']?.['sourcerecordid']) || this.firstText(pnx?.['control']?.['recordid']);
+  private tokenContext(record: unknown, fallbackDocId: string, url: string): RecordLike {
+    const pnx = this.pnxFromRecord(record);
+    const recordId = this.normalizeDocId(
+      this.firstText(pnx?.['control']?.['sourcerecordid']) ||
+      this.firstText(pnx?.['control']?.['recordid']) ||
+      fallbackDocId
+    );
 
     return {
       baseUrl: this.baseUrl(),
       baseurl: this.baseUrl(),
       origin: this.baseUrl(),
       docId: recordId ? `alma${recordId}` : '',
-      lang: this.urlParameter('lang'),
+      lang: this.urlParameter(url, 'lang'),
       pnx,
-      record: this.currentRecord(),
+      record: this.asRecord(record),
       recordId,
-      vid: this.urlParameter('vid')
+      vid: this.urlParameter(url, 'vid')
     };
   }
 
-  private currentRecord(): RecordLike | null {
-    return this.asRecord(this.hostRecord) ?? this.asRecord(this.fullDisplayRecord);
+  private pnxFromRecord(record: unknown): RecordLike | null {
+    const recordObject = this.asRecord(record);
+    if (!recordObject) {
+      return null;
+    }
+
+    return this.asRecord(recordObject['pnx']) ?? (this.asRecord(recordObject['control']) ? recordObject : null);
   }
 
-  private currentPnx(): RecordLike | null {
-    const record = this.currentRecord();
-    return this.asRecord(record?.['pnx']);
+  private docIdFromUrl(url: string): string {
+    return this.normalizeDocId(this.urlParameter(url, 'docid') || this.urlParameter(url, 'docId'));
+  }
+
+  private normalizeDocId(value: unknown): string {
+    return this.firstText(value).replace(/^alma/i, '');
+  }
+
+  private recordIdFromRecord(record: unknown): string {
+    const recordObject = this.asRecord(record);
+    const pnx = this.pnxFromRecord(recordObject);
+    const control = this.asRecord(pnx?.['control']);
+
+    return this.normalizeDocId(
+      this.firstText(control?.['recordid']) ||
+      this.firstText(control?.['sourcerecordid']) ||
+      this.asText(recordObject?.['id']) ||
+      this.asText(recordObject?.['docid']) ||
+      this.asText(recordObject?.['docId'])
+    );
+  }
+
+  private recordMatchesDocId(record: unknown, docId: string): boolean {
+    const recordObject = this.asRecord(record);
+    const pnx = this.pnxFromRecord(recordObject);
+    const control = this.asRecord(pnx?.['control']);
+    const candidates = [
+      this.firstText(control?.['sourcerecordid']),
+      this.firstText(control?.['recordid']),
+      this.asText(recordObject?.['id']),
+      this.asText(recordObject?.['docid']),
+      this.asText(recordObject?.['docId'])
+    ];
+
+    return candidates.some(candidate => this.normalizeDocId(candidate) === docId);
   }
 
   private extractRecordFromHost(value: unknown): unknown {
@@ -463,8 +633,12 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return this.asText(this.params.baseUrl) || this.asText(this.params.baseurl) || window.location.origin;
   }
 
-  private urlParameter(name: string): string {
-    return new URLSearchParams(window.location.search).get(name) ?? '';
+  private urlParameter(url: string, name: string): string {
+    try {
+      return new URL(url).searchParams.get(name) ?? '';
+    } catch (_error) {
+      return new URLSearchParams(window.location.search).get(name) ?? '';
+    }
   }
 
   private isTrue(value: unknown): boolean {
@@ -495,5 +669,31 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
 
     const text = this.asText(value);
     return text ? [text] : [];
+  }
+
+  private debug(message: string, payload?: unknown): void {
+    if (!this.debugEnabled()) {
+      return;
+    }
+
+    console.info('[ActionsToolbar]', message, payload ?? '');
+  }
+
+  private debugEnabled(): boolean {
+    try {
+      return new URL(window.location.href).searchParams.get('actionsToolbarDebug') === 'true' ||
+        window.localStorage.getItem('actionsToolbarDebug') === 'true';
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  private recordDebugInfo(record: unknown): Record<string, string> {
+    const pnx = this.pnxFromRecord(record);
+    return {
+      sourcerecordid: this.firstText(pnx?.['control']?.['sourcerecordid']),
+      recordid: this.firstText(pnx?.['control']?.['recordid']),
+      title: this.firstText(pnx?.['display']?.['title'])
+    };
   }
 }

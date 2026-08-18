@@ -1,32 +1,35 @@
-<section class="actions-toolbar" *ngIf="isFullDisplayPage && (visibleActions.length > 0 || visibleLinks.length > 0)" [attr.aria-label]="ariaLabel">
-  <nav class="actions-ribbon" *ngIf="visibleActions.length > 0">
-    <button
-      *ngFor="let action of visibleActions; trackBy: trackByAction"
-      type="button"
-      class="action-btn"
-      [attr.aria-label]="action.ariaLabel || action.label"
-      [title]="action.tooltip || action.label"
-      (click)="execAction(action)">
-      <svg class="action-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path [attr.d]="iconPath(action.icon)"></path>
-      </svg>
-      <span class="action-label">{{ action.label }}</span>
-    </button>
-  </nav>
+<ng-container *ngIf="vm$ | async as vm">
+  <section class="actions-toolbar" *ngIf="vm.isFullDisplayPage && (vm.actions.length > 0 || vm.links.length > 0)" [attr.aria-label]="ariaLabel">
+    <nav class="actions-ribbon" *ngIf="vm.actions.length > 0">
+      <button
+        *ngFor="let action of vm.actions; trackBy: trackByAction"
+        type="button"
+        class="action-btn"
+        [attr.aria-label]="action.ariaLabel || action.label"
+        [title]="action.tooltip || action.label"
+        (click)="execAction(action)">
+        <svg class="action-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path [attr.d]="iconPath(action.icon)"></path>
+        </svg>
+        <span class="action-label">{{ action.label }}</span>
+      </button>
+    </nav>
 
-  <div class="action-links" *ngIf="visibleLinks.length > 0">
-    <p class="action-link" *ngFor="let link of visibleLinks; trackBy: trackByLink">
-      <svg class="link-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path [attr.d]="iconPath(link.icon)"></path>
-      </svg>
-      <a
-        [href]="resolveUrl(link.url)"
-        [target]="link.target"
-        [attr.rel]="link.target === '_blank' ? 'noopener noreferrer' : null"
-        [attr.aria-label]="link.ariaLabel || null"
-        [title]="link.tooltip || link.label">
-        {{ link.label }}
-      </a>
-    </p>
-  </div>
-</section>
+    <div class="action-links" *ngIf="vm.links.length > 0">
+      <p class="action-link" *ngFor="let link of vm.links; trackBy: trackByLink">
+        <svg class="link-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path [attr.d]="iconPath(link.icon)"></path>
+        </svg>
+        <a
+          [href]="link.resolvedUrl"
+          [target]="link.target"
+          [attr.rel]="link.target === '_blank' ? 'noopener noreferrer' : null"
+          [attr.aria-label]="link.ariaLabel || null"
+          [title]="link.tooltip || link.label"
+          (click)="execLink(link, $event)">
+          {{ link.label }}
+        </a>
+      </p>
+    </div>
+  </section>
+</ng-container>
