@@ -8,7 +8,15 @@ import { ICON_PATHS } from './action-icons';
 import { selectFullDisplayRecordId, selectSearchRecordById } from '../utils/fullDisplayRecordSelector';
 import { SHELL_ROUTER } from '../injection-tokens';
 
-interface ActionConfig {
+interface ItemVisibilityConfig {
+  requires?: string;
+  recordIdStartsWith?: string[];
+  phys?: boolean;
+  avail?: boolean;
+  own?: boolean;
+}
+
+interface ActionConfig extends ItemVisibilityConfig {
   id: string;
   label: string;
   url: string;
@@ -16,24 +24,21 @@ interface ActionConfig {
   target: '_blank' | '_self' | '_parent' | '_top';
   tooltip?: string;
   ariaLabel?: string;
-  requires?: string;
-  recordIdStartsWith?: string[];
 }
 
 interface LinkConfig extends ActionConfig {}
 interface ResolvedActionConfig extends ActionConfig { resolvedUrl: string; }
 interface ResolvedLinkConfig extends LinkConfig { resolvedUrl: string; }
 
-interface LinkActionConfig {
+interface LinkActionConfig extends ItemVisibilityConfig {
   id: string;
   label: string;
   icon: string;
   target: '_blank' | '_self' | '_parent' | '_top';
   tooltip?: string;
   ariaLabel?: string;
-  requires?: string;
-  recordIdStartsWith?: string[];
   containsAny: string[];
+  prio?: string[];
 }
 
 interface ToolbarViewModel {
@@ -42,7 +47,16 @@ interface ToolbarViewModel {
   links: ResolvedLinkConfig[];
 }
 
-interface RawItemConfig {
+interface RawVisibilityConfig {
+  requires?: unknown;
+  recordIdStartsWith?: unknown;
+  rid?: unknown;
+  phys?: unknown;
+  avail?: unknown;
+  own?: unknown;
+}
+
+interface RawItemConfig extends RawVisibilityConfig {
   id?: unknown;
   label?: unknown;
   url?: unknown;
@@ -50,21 +64,18 @@ interface RawItemConfig {
   target?: unknown;
   tooltip?: unknown;
   ariaLabel?: unknown;
-  requires?: unknown;
-  recordIdStartsWith?: unknown;
 }
 
-interface RawLinkActionConfig {
+interface RawLinkActionConfig extends RawVisibilityConfig {
   id?: unknown;
   label?: unknown;
   icon?: unknown;
   target?: unknown;
   tooltip?: unknown;
   ariaLabel?: unknown;
-  requires?: unknown;
-  recordIdStartsWith?: unknown;
   contains?: unknown;
   containsAny?: unknown;
+  prio?: unknown;
 }
 
 interface ToolbarParameters {
@@ -331,7 +342,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      const matchingLink = pnxLinks.find(link => this.linkActionMatches(definition, link));
+      const matchingLink = this.firstMatchingLink(definition, pnxLinks);
       const linkUrl = this.asText(matchingLink?.['linkURL']);
 
       if (!linkUrl) {
@@ -348,6 +359,9 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
         ariaLabel: definition.ariaLabel,
         requires: definition.requires,
         recordIdStartsWith: definition.recordIdStartsWith,
+        phys: definition.phys,
+        avail: definition.avail,
+        own: definition.own,
         resolvedUrl: linkUrl
       });
     }
@@ -355,26 +369,91 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return actions;
   }
 
-  private itemMatchesContext(item: { requires?: string; recordIdStartsWith?: string[] }, context: RecordLike): boolean {
+  private itemMatchesContext(item: ItemVisibilityConfig, context: RecordLike): boolean {
     if (item.requires && this.asText(this.readPath(context, item.requires)) === '') {
       return false;
     }
 
-    if (!item.recordIdStartsWith || item.recordIdStartsWith.length === 0) {
-      return true;
+    if (item.recordIdStartsWith && item.recordIdStartsWith.length > 0) {
+      const recordId = this.asText(context['recordId']);
+      if (!item.recordIdStartsWith.some(prefix => recordId.startsWith(prefix))) {
+        return false;
+      }
     }
 
-    const recordId = this.asText(context['recordId']);
-    return item.recordIdStartsWith.some(prefix => recordId.startsWith(prefix));
+    return this.matchesFlag(item.phys, this.isPhysicalRecord(context)) &&
+      this.matchesFlag(item.avail, this.isAvailableInLibrary(context)) &&
+      this.matchesFlag(item.own, this.isOwnedByCurrentLibrary(context));
+  }
+
+  private matchesFlag(required: boolean | undefined, actual: boolean): boolean {
+    return required === undefined || required === actual;
+  }
+
+  private firstMatchingLink(definition: LinkActionConfig, links: RecordLike[]): RecordLike | undefined {
+    if (definition.prio && definition.prio.length > 0) {
+      for (const pattern of this.priorityPatterns(definition)) {
+        const matchingLink = links.find(link => this.linkMatchesPattern(link, pattern));
+        if (matchingLink) {
+          return matchingLink;
+        }
+      }
+    }
+
+    return links.find(link => this.linkActionMatches(definition, link));
+  }
+
+  private priorityPatterns(definition: LinkActionConfig): string[] {
+    const allowedPatterns = new Set(definition.containsAny.map(pattern => pattern.toLowerCase()));
+    const seenPatterns = new Set<string>();
+
+    return (definition.prio ?? []).filter(pattern => {
+      const normalizedPattern = pattern.toLowerCase();
+      if (!allowedPatterns.has(normalizedPattern) || seenPatterns.has(normalizedPattern)) {
+        return false;
+      }
+
+      seenPatterns.add(normalizedPattern);
+      return true;
+    });
   }
 
   private linkActionMatches(definition: LinkActionConfig, link: RecordLike): boolean {
+    return definition.containsAny.some(pattern => this.linkMatchesPattern(link, pattern));
+  }
+
+  private linkMatchesPattern(link: RecordLike, pattern: string): boolean {
     const linkType = this.asText(link['linkType']).toLowerCase();
     const linkUrl = this.asText(link['linkURL']).toLowerCase();
 
-    return linkType === 'linktorsrc' &&
-      linkUrl !== '' &&
-      definition.containsAny.some(text => linkUrl.includes(text.toLowerCase()));
+    return linkType === 'linktorsrc' && linkUrl !== '' && linkUrl.includes(pattern.toLowerCase());
+  }
+
+  private isPhysicalRecord(context: RecordLike): boolean {
+    const delivery = this.deliveryFromContext(context);
+    return this.firstText(delivery?.['deliveryCategory']) === 'Alma-P';
+  }
+
+  private isAvailableInLibrary(context: RecordLike): boolean {
+    const delivery = this.deliveryFromContext(context);
+    const availability = this.firstText(delivery?.['availability']);
+    return availability !== '' && availability !== 'no_inventory';
+  }
+
+  private isOwnedByCurrentLibrary(context: RecordLike): boolean {
+    const delivery = this.deliveryFromContext(context);
+    const recordOwner = this.firstText(delivery?.['recordOwner']);
+    const currentLibraryCode = this.currentLibraryCode(context);
+    return recordOwner !== '' && currentLibraryCode !== '' && recordOwner === currentLibraryCode;
+  }
+
+  private deliveryFromContext(context: RecordLike): RecordLike | null {
+    const pnx = this.asRecord(context['pnx']);
+    return this.asRecord(pnx?.['delivery']);
+  }
+
+  private currentLibraryCode(context: RecordLike): string {
+    return this.asText(context['vid']).split(':')[0];
   }
 
   private pnxLinkCandidates(context: RecordLike): RecordLike[] {
@@ -667,8 +746,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       target: this.normalizeTarget(item.target),
       tooltip: this.asText(item.tooltip) || undefined,
       ariaLabel: this.asText(item.ariaLabel) || undefined,
-      requires: this.asText(item.requires) || undefined,
-      recordIdStartsWith: this.normalizeTextList(item.recordIdStartsWith)
+      ...this.normalizeVisibility(item)
     } as T;
   }
 
@@ -692,9 +770,19 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       target: this.normalizeTarget(item.target),
       tooltip: this.asText(item.tooltip) || undefined,
       ariaLabel: this.asText(item.ariaLabel) || undefined,
+      ...this.normalizeVisibility(item),
+      containsAny,
+      prio: this.normalizeTextList(item.prio)
+    };
+  }
+
+  private normalizeVisibility(item: RawVisibilityConfig): ItemVisibilityConfig {
+    return {
       requires: this.asText(item.requires) || undefined,
-      recordIdStartsWith: this.normalizeTextList(item.recordIdStartsWith),
-      containsAny
+      recordIdStartsWith: this.normalizeTextList(item.recordIdStartsWith ?? item.rid),
+      phys: this.normalizeOptionalBoolean(item.phys),
+      avail: this.normalizeOptionalBoolean(item.avail),
+      own: this.normalizeOptionalBoolean(item.own)
     };
   }
 
@@ -894,6 +982,22 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       .filter(item => item.length > 0);
 
     return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private normalizeOptionalBoolean(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const text = this.asText(value).toLowerCase();
+    if (text === 'true' || text === '1' || text === 'yes') {
+      return true;
+    }
+    if (text === 'false' || text === '0' || text === 'no') {
+      return false;
+    }
+
+    return undefined;
   }
 
   private debug(message: string, payload?: unknown): void {

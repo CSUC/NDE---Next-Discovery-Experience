@@ -7,14 +7,19 @@
       "url": "https://request.bnc.cat/peticio/crear/{pnx.control.sourcerecordid[0]}",
       "icon": "local_library",
       "target": "_blank",
-      "recordIdStartsWith": "99"
+      "rid": "99",
+      "phys": true,
+      "avail": true,
+      "own": true
     },
     {
       "label": "Demanar reproducció",
       "url": "https://www.bnc.cat/Serveis/Reproduccio-de-documents/Sol-licitud-de-reproduccio-de-documents-i-autoritzacio-d-us-public?numreg={pnx.control.sourcerecordid[0]}&mattype={pnx.display.type[0]}",
       "icon": "search",
       "target": "_blank",
-      "recordIdStartsWith": "99"
+      "rid": "99",
+      "phys": true,
+      "own": true
     },
     {
       "label": "Préstec interbibliotecari",
@@ -35,10 +40,16 @@
       "label": "Text complet",
       "containsAny": [
         "mdc",
-        "arca"
+        "arca",
+        "bnc.cat/content/download"
       ],
       "icon": "open_in_new",
-      "target": "_blank"
+      "target": "_blank",
+      "prio": [
+        "arca",
+        "mdc",
+        "bnc.cat/content/download"
+      ]
     },
     {
       "label": "Reproducció d'alta qualitat (compra en línia)",
