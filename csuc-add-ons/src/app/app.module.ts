@@ -45,6 +45,10 @@ export const AppModule = ({providers, shellRouter}: {providers:any, shellRouter:
      * @param componentName
      */
     public getComponentRef(componentName:string) {
+      if (componentName === 'nde-search-result-item-container' && !window.location.href.includes('/nde/fulldisplay')) {
+        return undefined;
+      }
+
       return this.webComponentSelectorMap.get(componentName);
     }
   }

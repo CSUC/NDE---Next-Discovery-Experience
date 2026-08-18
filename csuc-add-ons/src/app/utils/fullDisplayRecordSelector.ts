@@ -11,13 +11,38 @@ interface SearchState {
 const selectFullDisplay = createFeatureSelector<FullDisplayState>('full-display');
 const selectSearchState = createFeatureSelector<SearchState>('Search');
 
-const selectFullDisplayRecordId = createSelector(
+export const selectFullDisplayRecordId = createSelector(
   selectFullDisplay,
   (fullDisplay: FullDisplayState | undefined) => fullDisplay?.selectedRecordId ?? null
 );
 
+export const selectSearchEntities = createSelector(
+  selectSearchState,
+  (searchState: SearchState | undefined) => searchState?.entities ?? {}
+);
+
 export const selectFullDisplayRecord = createSelector(
   selectFullDisplayRecordId,
-  selectSearchState,
-  (recordId: string | null, searchState: SearchState | undefined) => recordId ? searchState?.entities?.[recordId] ?? null : null
+  selectSearchEntities,
+  (recordId: string | null, entities: Record<string, unknown>) => {
+    if (!recordId) {
+      return null;
+    }
+
+    const normalizedRecordId = recordId.replace(/^alma/i, '');
+    return entities[recordId] ?? entities[normalizedRecordId] ?? entities[`alma${normalizedRecordId}`] ?? null;
+  }
+);
+
+
+export const selectSearchRecordById = (recordId: string | null) => createSelector(
+  selectSearchEntities,
+  (entities: Record<string, unknown>) => {
+    if (!recordId) {
+      return null;
+    }
+
+    const normalizedRecordId = recordId.replace(/^alma/i, '');
+    return entities[recordId] ?? entities[normalizedRecordId] ?? entities[`alma${normalizedRecordId}`] ?? null;
+  }
 );
