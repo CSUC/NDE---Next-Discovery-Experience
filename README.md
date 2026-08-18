@@ -2,7 +2,7 @@
 
 Aquest repositori agrupa desenvolupaments per a Primo NDE d'Ex Libris seguint un model multi-add-on.
 
-El projecte Angular viu dins de [`csuc-add-ons`](./csuc-add-ons).
+El projecte viu dins de [`csuc-add-ons`](./csuc-add-ons).
 
 ## Add-ons
 

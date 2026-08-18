@@ -27,7 +27,6 @@
       "url": "{baseUrl}/discovery/sourceRecord?vid={vid}&docId={docId}",
       "icon": "description",
       "target": "_blank",
-      "requires": "recordId"
     }
   ],
   "linkActions": [

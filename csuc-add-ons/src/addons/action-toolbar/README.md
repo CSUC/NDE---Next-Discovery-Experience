@@ -151,10 +151,8 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `label`: text visible. Obligatori.
 - `url`: URL de destinació. Obligatori.
 - `icon`: icona. Opcional. Si no existeix, s'usa `link`.
-- `target`: `_blank`, `_self`, `_parent` o `_top`. Per defecte: `_blank`.
-- `tooltip`: tooltip opcional.
-- `ariaLabel`: etiqueta accessible alternativa.
-- `id`: identificador intern opcional.
+- `target`: `_blank`, `_self`. Per defecte: `_blank`.
+- `tooltip`: tooltip opcional. Per defecte s'usa `label`.
 - `requires`: camí del context que ha de tenir valor perquè es mostri l'element. Exemple: `recordId`.
 - `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat. Exemple: `"99"`.
 
@@ -163,16 +161,13 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `label`: text visible del botó generat. Obligatori.
 - `containsAny`: text o llista de textos que han d'aparèixer dins de `linkURL`. La comparació no diferencia majúscules/minúscules.
 - `icon`: icona. Opcional. Si no existeix, s'usa `link`.
-- `target`: `_blank`, `_self`, `_parent` o `_top`. Per defecte: `_blank`.
+- `target`: `_blank`, `_self`. Per defecte: `_blank`.
 - `tooltip`: tooltip opcional.
-- `ariaLabel`: etiqueta accessible alternativa.
-- `id`: identificador intern opcional.
-- `requires`: camí del context que ha de tenir valor perquè es mostri l'element.
 - `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat.
 
 Les `linkActions` sempre llegeixen `pnx.delivery.link`, només tenen en compte links amb `linkType` igual a `linktorsrc`, i fan el match sobre `linkURL`. Per cada regla es genera com a màxim un botó, amb la URL del primer link coincident.
 
-En configuracions que Alma transformi a text, `containsAny` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
+`containsAny` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
 
 ## Tokens disponibles
 
@@ -183,7 +178,6 @@ En configuracions que Alma transformi a text, `containsAny` i `recordIdStartsWit
 - `{vid}`: paràmetre `vid` de la URL actual.
 - `{lang}`: paràmetre `lang` de la URL actual.
 - `{pnx.seccio.camp[index]}`: qualsevol camp PNX. Exemple: `{pnx.display.title[0]}`.
-- `{record.camp}`: qualsevol camp disponible dins l'objecte de registre.
 - `{raw:pnx.display.title[0]}`: valor sense `encodeURIComponent`.
 
 ## Icones disponibles
@@ -191,7 +185,6 @@ En configuracions que Alma transformi a text, `containsAny` i `recordIdStartsWit
 Les icones es defineixen a [`action-icons.ts`](../../app/custom-actions-toolbar/action-icons.ts).
 
 Valors disponibles:
-
 - `bookmark`
 - `content_copy`
 - `description`
