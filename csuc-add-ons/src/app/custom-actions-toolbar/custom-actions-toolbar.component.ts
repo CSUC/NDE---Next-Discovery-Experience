@@ -274,6 +274,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     const activeDocId = this.normalizeDocId(activeRecordId) || this.recordIdFromRecord(hostRecord) || this.docIdFromUrl(url);
     const record = this.selectCurrentRecord(activeDocId, storeRecord, hostRecord);
     const context = this.tokenContext(record, activeDocId, url);
+    this.debug('full pnx', context['pnx']);
     const actions = [
       ...this.resolveVisibleItems<ResolvedActionConfig>(this.actionDefinitions, context),
       ...this.resolveLinkActions(context)
