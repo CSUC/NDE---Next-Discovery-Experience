@@ -1,6 +1,6 @@
 # action-toolbar
 
-Add-on de Primo NDE que mostra una cinta d'accions configurable a la vista completa del registre. Permet definir botons principals (`actions`) i enllaços informatius sota la cinta (`links`) a partir del JSON de configuració de l'add-on a Alma.
+Add-on de Primo NDE que mostra una cinta d'accions configurable a la vista completa del registre. Permet definir botons principals (`actions`), botons generats a partir dels enllaços 856 del PNX (`linkActions`) i enllaços informatius sota la cinta (`links`) a partir del JSON de configuració de l'add-on a Alma.
 
 ## Com es mostra
 
@@ -80,13 +80,15 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
       "label": "Demanar document",
       "url": "https://request.bnc.cat/peticio/crear/{pnx.control.sourcerecordid[0]}",
       "icon": "local_library",
-      "target": "_blank"
+      "target": "_blank",
+      "recordIdStartsWith": "99"
     },
     {
       "label": "Demanar reproducció",
       "url": "https://www.bnc.cat/Serveis/Reproduccio-de-documents/Sol-licitud-de-reproduccio-de-documents-i-autoritzacio-d-us-public?numreg={pnx.control.sourcerecordid[0]}&mattype={pnx.display.type[0]}",
       "icon": "search",
-      "target": "_blank"
+      "target": "_blank",
+      "recordIdStartsWith": "99"
     },
     {
       "label": "Préstec interbibliotecari",
@@ -99,6 +101,21 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
       "url": "{baseUrl}/discovery/sourceRecord?vid={vid}&docId={docId}",
       "icon": "description",
       "target": "_blank",
+      "requires": "recordId"
+    }
+  ],
+  "linkActions": [
+    {
+      "label": "Text complet",
+      "containsAny": ["mdc", "arca"],
+      "icon": "open_in_new",
+      "target": "_blank"
+    },
+    {
+      "label": "Reproducció d'alta qualitat (compra en línia)",
+      "containsAny": ["copiescofre"],
+      "icon": "settings_overscan",
+      "target": "_blank"
     }
   ],
   "links": [
@@ -125,6 +142,7 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `ariaLabel`: etiqueta accessible del bloc. Opcional.
 - `baseUrl`: URL base de Primo per construir enllaços interns.
 - `actions`: botons principals de la cinta.
+- `linkActions`: botons generats a partir dels enllaços de `pnx.delivery.link`.
 - `links`: enllaços informatius sota la cinta.
 - `includeDefaultActions`: si és `true` i no hi ha `actions`, mostra l'acció per defecte `Registre MARC`.
 
@@ -137,6 +155,24 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `tooltip`: tooltip opcional.
 - `ariaLabel`: etiqueta accessible alternativa.
 - `id`: identificador intern opcional.
+- `requires`: camí del context que ha de tenir valor perquè es mostri l'element. Exemple: `recordId`.
+- `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat. Exemple: `"99"`.
+
+### Camps d'una linkAction
+
+- `label`: text visible del botó generat. Obligatori.
+- `containsAny`: text o llista de textos que han d'aparèixer dins de `linkURL`. La comparació no diferencia majúscules/minúscules.
+- `icon`: icona. Opcional. Si no existeix, s'usa `link`.
+- `target`: `_blank`, `_self`, `_parent` o `_top`. Per defecte: `_blank`.
+- `tooltip`: tooltip opcional.
+- `ariaLabel`: etiqueta accessible alternativa.
+- `id`: identificador intern opcional.
+- `requires`: camí del context que ha de tenir valor perquè es mostri l'element.
+- `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat.
+
+Les `linkActions` sempre llegeixen `pnx.delivery.link`, només tenen en compte links amb `linkType` igual a `linktorsrc`, i fan el match sobre `linkURL`. Per cada regla es genera com a màxim un botó, amb la URL del primer link coincident.
+
+En configuracions que Alma transformi a text, `containsAny` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
 
 ## Tokens disponibles
 
@@ -169,6 +205,9 @@ Valors disponibles:
 - `schedule`
 - `search`
 - `send`
+- `settings_overscan`
+
+També s'accepta l'àlies `ic_settings_overscan_24px_cache106` per a la icona `settings_overscan`.
 
 Si el JSON indica una icona no definida, es mostra `link`.
 
