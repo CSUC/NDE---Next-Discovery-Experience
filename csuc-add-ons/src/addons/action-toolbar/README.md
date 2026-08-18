@@ -193,7 +193,7 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `phys`, `avail`, `own`: mateixes condicions curtes que en una `action`.
 - `prio`: llista opcional de patrons de `containsAny` en ordre de preferència. Si no existeix, es manté l'ordre dels links rebut de Primo.
 
-Les `linkActions` llegeixen primer els objectes de `pnx.delivery.link` amb `linkType` igual a `linktorsrc` i fan el match sobre `linkURL`. També incorporen com a fallback les URL de `pnx.addata.url[]`, útil en registres on els enllaços 856 no arriben com a objectes llegibles dins de `delivery.link`. Per cada regla es genera com a màxim un botó, amb la URL del primer link coincident.
+Les `linkActions` llegeixen primer els objectes de `pnx.delivery.link` i fan el match sobre `linkURL`, sense filtrar pel valor de `linkType`. També incorporen com a fallback les URL de `pnx.addata.url[]`, útil en registres on els enllaços 856 no arriben com a objectes llegibles dins de `delivery.link`. Per cada regla es genera com a màxim un botó, amb la URL del primer link coincident.
 
 En configuracions que Alma transformi a text, `containsAny`, `prio`, `rid` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
 

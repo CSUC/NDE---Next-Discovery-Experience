@@ -423,10 +423,9 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
   }
 
   private linkMatchesPattern(link: RecordLike, pattern: string): boolean {
-    const linkType = this.asText(link['linkType']).toLowerCase();
     const linkUrl = this.asText(link['linkURL']).toLowerCase();
 
-    return linkType === 'linktorsrc' && linkUrl !== '' && linkUrl.includes(pattern.toLowerCase());
+    return linkUrl !== '' && linkUrl.includes(pattern.toLowerCase());
   }
 
   private isPhysicalRecord(context: RecordLike): boolean {

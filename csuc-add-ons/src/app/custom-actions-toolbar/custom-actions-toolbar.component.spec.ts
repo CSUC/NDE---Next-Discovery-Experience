@@ -194,7 +194,7 @@ describe('CustomActionsToolbarComponent', () => {
     expect(component.resolveUrl(component.visibleActions[0].url)).toBe('https://request.example/991234567');
   });
 
-  it('should generate action buttons from pnx.delivery.link linktorsrc URLs', async () => {
+  it('should generate action buttons from pnx.delivery.link URLs', async () => {
     await configure({
       linkActions: [
         {
@@ -309,7 +309,7 @@ describe('CustomActionsToolbarComponent', () => {
     expect(component.visibleActions[0].url).toBe('https://arca.bnc.cat/arcabib_pro/ca/consulta/registro.do?id=2653');
   });
 
-  it('should ignore pnx.delivery.link entries that are not linktorsrc', async () => {
+  it('should match pnx.delivery.link entries regardless of linkType', async () => {
     await configure({
       linkActions: [
         {
@@ -337,6 +337,7 @@ describe('CustomActionsToolbarComponent', () => {
     };
     fixture.detectChanges();
 
-    expect(component.visibleActions.length).toBe(0);
+    expect(component.visibleActions.length).toBe(1);
+    expect(component.visibleActions[0].url).toBe('https://mdc.csuc.cat/digital/collection/manuscritBC/id/260043');
   });
 });
