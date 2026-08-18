@@ -17,11 +17,24 @@ interface ActionConfig {
   tooltip?: string;
   ariaLabel?: string;
   requires?: string;
+  recordIdStartsWith?: string[];
 }
 
 interface LinkConfig extends ActionConfig {}
 interface ResolvedActionConfig extends ActionConfig { resolvedUrl: string; }
 interface ResolvedLinkConfig extends LinkConfig { resolvedUrl: string; }
+
+interface LinkActionConfig {
+  id: string;
+  label: string;
+  icon: string;
+  target: '_blank' | '_self' | '_parent' | '_top';
+  tooltip?: string;
+  ariaLabel?: string;
+  requires?: string;
+  recordIdStartsWith?: string[];
+  containsAny: string[];
+}
 
 interface ToolbarViewModel {
   isFullDisplayPage: boolean;
@@ -38,6 +51,20 @@ interface RawItemConfig {
   tooltip?: unknown;
   ariaLabel?: unknown;
   requires?: unknown;
+  recordIdStartsWith?: unknown;
+}
+
+interface RawLinkActionConfig {
+  id?: unknown;
+  label?: unknown;
+  icon?: unknown;
+  target?: unknown;
+  tooltip?: unknown;
+  ariaLabel?: unknown;
+  requires?: unknown;
+  recordIdStartsWith?: unknown;
+  contains?: unknown;
+  containsAny?: unknown;
 }
 
 interface ToolbarParameters {
@@ -48,6 +75,8 @@ interface ToolbarParameters {
   includeDefaultActions?: unknown;
   actions?: unknown;
   actionsJson?: unknown;
+  linkActions?: unknown;
+  linkActionsJson?: unknown;
   links?: unknown;
   linksJson?: unknown;
   actionIds?: unknown;
@@ -91,6 +120,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
   public readonly vm$: Observable<ToolbarViewModel>;
 
   private readonly actionDefinitions: ActionConfig[];
+  private readonly linkActionDefinitions: LinkActionConfig[];
   private readonly linkDefinitions: LinkConfig[];
   private readonly params: ToolbarParameters;
   private readonly hostRecordSubject = new BehaviorSubject<unknown>(null);
@@ -110,6 +140,7 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     this.params = moduleParameters ?? {};
     this.ariaLabel = this.asText(this.params.ariaLabel) || this.asText(this.params.buttonLabel) || this.ariaLabel;
     this.actionDefinitions = this.readActions(this.params);
+    this.linkActionDefinitions = this.readLinkActions(this.params);
     this.linkDefinitions = this.readLinks(this.params);
 
     const hostRecord$ = this.hostRecordSubject.pipe(
@@ -232,7 +263,10 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     const activeDocId = this.normalizeDocId(activeRecordId) || this.recordIdFromRecord(hostRecord) || this.docIdFromUrl(url);
     const record = this.selectCurrentRecord(activeDocId, storeRecord, hostRecord);
     const context = this.tokenContext(record, activeDocId, url);
-    const actions = this.resolveVisibleItems<ResolvedActionConfig>(this.actionDefinitions, context);
+    const actions = [
+      ...this.resolveVisibleItems<ResolvedActionConfig>(this.actionDefinitions, context),
+      ...this.resolveLinkActions(context)
+    ];
     const links = this.resolveVisibleItems<ResolvedLinkConfig>(this.linkDefinitions, context);
 
     this.lastContext = context;
@@ -273,11 +307,85 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
 
   private resolveVisibleItems<T extends ActionConfig>(items: ActionConfig[], context: RecordLike): T[] {
     return items
-      .filter(item => !item.requires || this.asText(this.readPath(context, item.requires)) !== '')
+      .filter(item => this.itemMatchesContext(item, context))
       .map(item => ({
         ...item,
         resolvedUrl: this.resolveUrl(item.url, context)
       } as unknown as T));
+  }
+
+  private resolveLinkActions(context: RecordLike): ResolvedActionConfig[] {
+    if (this.linkActionDefinitions.length === 0) {
+      return [];
+    }
+
+    const pnxLinks = this.pnxDeliveryLinks(context);
+    if (pnxLinks.length === 0) {
+      return [];
+    }
+
+    const actions: ResolvedActionConfig[] = [];
+
+    for (const definition of this.linkActionDefinitions) {
+      if (!this.itemMatchesContext(definition, context)) {
+        continue;
+      }
+
+      const matchingLink = pnxLinks.find(link => this.linkActionMatches(definition, link));
+      const linkUrl = this.asText(matchingLink?.['linkURL']);
+
+      if (!linkUrl) {
+        continue;
+      }
+
+      actions.push({
+        id: definition.id,
+        label: definition.label,
+        url: linkUrl,
+        icon: definition.icon,
+        target: definition.target,
+        tooltip: definition.tooltip,
+        ariaLabel: definition.ariaLabel,
+        requires: definition.requires,
+        recordIdStartsWith: definition.recordIdStartsWith,
+        resolvedUrl: linkUrl
+      });
+    }
+
+    return actions;
+  }
+
+  private itemMatchesContext(item: { requires?: string; recordIdStartsWith?: string[] }, context: RecordLike): boolean {
+    if (item.requires && this.asText(this.readPath(context, item.requires)) === '') {
+      return false;
+    }
+
+    if (!item.recordIdStartsWith || item.recordIdStartsWith.length === 0) {
+      return true;
+    }
+
+    const recordId = this.asText(context['recordId']);
+    return item.recordIdStartsWith.some(prefix => recordId.startsWith(prefix));
+  }
+
+  private linkActionMatches(definition: LinkActionConfig, link: RecordLike): boolean {
+    const linkType = this.asText(link['linkType']).toLowerCase();
+    const linkUrl = this.asText(link['linkURL']).toLowerCase();
+
+    return linkType === 'linktorsrc' &&
+      linkUrl !== '' &&
+      definition.containsAny.some(text => linkUrl.includes(text.toLowerCase()));
+  }
+
+  private pnxDeliveryLinks(context: RecordLike): RecordLike[] {
+    const pnx = this.asRecord(context['pnx']);
+    const delivery = this.asRecord(pnx?.['delivery']);
+    const rawLinks = delivery?.['link'];
+    const links = Array.isArray(rawLinks) ? rawLinks : rawLinks ? [rawLinks] : [];
+
+    return links
+      .map(link => this.asRecord(link))
+      .filter((link): link is RecordLike => Boolean(link));
   }
 
   private resolvedUrl(item: ActionConfig | ResolvedActionConfig): string {
@@ -315,6 +423,35 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       ...this.readJsonItems<LinkConfig>(params.linksJson, 'linksJson', 'link'),
       ...this.readFlatLinks(params)
     ];
+  }
+
+  private readLinkActions(params: ToolbarParameters): LinkActionConfig[] {
+    return [
+      ...this.readLinkActionItems(params.linkActions, 'linkActions'),
+      ...this.readLinkActionItems(params.linkActionsJson, 'linkActionsJson')
+    ];
+  }
+
+  private readLinkActionItems(rawItems: unknown, parameterName: string): LinkActionConfig[] {
+    if (Array.isArray(rawItems)) {
+      return this.normalizeLinkActions(rawItems);
+    }
+
+    const itemsText = this.asText(rawItems);
+    if (!itemsText) {
+      return [];
+    }
+
+    try {
+      return this.normalizeLinkActions(JSON.parse(itemsText) as unknown);
+    } catch (error) {
+      if (parameterName === 'linkActionsJson') {
+        console.warn(`Invalid ${parameterName} in ActionsToolbar add-on configuration`, error);
+        return [];
+      }
+
+      return this.parseAlmaLinkActions(itemsText);
+    }
   }
 
   private readObjectItems<T extends ActionConfig>(rawItems: unknown, itemType: 'action' | 'link'): T[] {
@@ -377,6 +514,22 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return action;
   }
 
+  private parseAlmaLinkActions(itemsText: string): LinkActionConfig[] {
+    const trimmed = itemsText.trim();
+    if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) {
+      return [];
+    }
+
+    const body = trimmed.slice(1, -1).trim();
+    if (!body) {
+      return [];
+    }
+
+    return this.splitAlmaActionObjects(body)
+      .map((itemText, index) => this.normalizeLinkAction(this.parseAlmaActionObject(itemText), index))
+      .filter((item): item is LinkActionConfig => Boolean(item));
+  }
+
   private readJsonItems<T extends ActionConfig>(rawItemsJson: unknown, parameterName: string, itemType: 'action' | 'link'): T[] {
     const itemsJson = this.asText(rawItemsJson);
     if (!itemsJson) {
@@ -401,6 +554,17 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
     return items
       .map((item, index) => this.normalizeItem<T>(item, index, itemType))
       .filter((item): item is T => Boolean(item));
+  }
+
+  private normalizeLinkActions(rawItems: unknown): LinkActionConfig[] {
+    const items = Array.isArray(rawItems) ? rawItems : this.asRecord(rawItems)?.['linkActions'];
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .map((item, index) => this.normalizeLinkAction(item, index))
+      .filter((item): item is LinkActionConfig => Boolean(item));
   }
 
   private readFlatActions(params: ToolbarParameters): ActionConfig[] {
@@ -480,8 +644,35 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
       target: this.normalizeTarget(item.target),
       tooltip: this.asText(item.tooltip) || undefined,
       ariaLabel: this.asText(item.ariaLabel) || undefined,
-      requires: this.asText(item.requires) || undefined
+      requires: this.asText(item.requires) || undefined,
+      recordIdStartsWith: this.normalizeTextList(item.recordIdStartsWith)
     } as T;
+  }
+
+  private normalizeLinkAction(rawItem: unknown, index: number): LinkActionConfig | null {
+    const item = this.asRecord(rawItem) as RawLinkActionConfig | null;
+    if (!item) {
+      return null;
+    }
+
+    const label = this.asText(item.label);
+    const containsAny = this.normalizeTextList(item.containsAny ?? item.contains);
+
+    if (!label || !containsAny || containsAny.length === 0) {
+      return null;
+    }
+
+    return {
+      id: this.asText(item.id) || `link-action-${index}-${label}`,
+      label,
+      icon: this.asText(item.icon) || 'link',
+      target: this.normalizeTarget(item.target),
+      tooltip: this.asText(item.tooltip) || undefined,
+      ariaLabel: this.asText(item.ariaLabel) || undefined,
+      requires: this.asText(item.requires) || undefined,
+      recordIdStartsWith: this.normalizeTextList(item.recordIdStartsWith),
+      containsAny
+    };
   }
 
   private normalizeTarget(value: unknown): '_blank' | '_self' | '_parent' | '_top' {
@@ -669,6 +860,17 @@ export class CustomActionsToolbarComponent implements OnInit, OnDestroy {
 
     const text = this.asText(value);
     return text ? [text] : [];
+  }
+
+  private normalizeTextList(value: unknown): string[] | undefined {
+    const values = Array.isArray(value)
+      ? value.map(item => this.asText(item))
+      : this.asText(value).split(/[|;,]/);
+    const normalized = values
+      .map(item => item.trim().replace(/^\[/, '').replace(/\]$/, '').replace(/^["']|["']$/g, '').trim())
+      .filter(item => item.length > 0);
+
+    return normalized.length > 0 ? normalized : undefined;
   }
 
   private debug(message: string, payload?: unknown): void {

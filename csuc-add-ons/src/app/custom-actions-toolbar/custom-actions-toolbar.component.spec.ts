@@ -94,4 +94,119 @@ describe('CustomActionsToolbarComponent', () => {
 
     expect(component.resolveUrl(component.visibleActions[0].url)).toBe('https://example.primo.exlibrisgroup.com/discovery/sourceRecord?vid=&docId=alma991234567');
   });
+
+  it('should only show actions with recordIdStartsWith when the record id matches', async () => {
+    await configure({
+      actions: [
+        {
+          label: 'Demanar document',
+          url: 'https://request.example/{recordId}',
+          icon: 'local_library',
+          recordIdStartsWith: '99'
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          control: { sourcerecordid: ['881234567'] }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.length).toBe(0);
+
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          control: { sourcerecordid: ['991234567'] }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.length).toBe(1);
+    expect(component.resolveUrl(component.visibleActions[0].url)).toBe('https://request.example/991234567');
+  });
+
+  it('should generate action buttons from pnx.delivery.link linktorsrc URLs', async () => {
+    await configure({
+      linkActions: [
+        {
+          label: 'Text complet',
+          containsAny: ['mdc', 'arca'],
+          icon: 'open_in_new'
+        },
+        {
+          label: "Reproducció d'alta qualitat (compra en línia)",
+          containsAny: ['copiescofre'],
+          icon: 'settings_overscan'
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          delivery: {
+            link: [
+              {
+                linkType: 'linktorsrc',
+                linkURL: 'https://copiescofre.bnc.cat/documents/view/abc',
+                displayLabel: 'Venda en línia de reproduccions digitals'
+              },
+              {
+                linkType: 'linktorsrc',
+                linkURL: 'https://mdc.csuc.cat/digital/collection/manuscritBC/id/260043',
+                displayLabel: 'Accés lliure'
+              }
+            ]
+          }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.map(action => action.label)).toEqual([
+      'Text complet',
+      "Reproducció d'alta qualitat (compra en línia)"
+    ]);
+    expect(component.visibleActions[0].url).toBe('https://mdc.csuc.cat/digital/collection/manuscritBC/id/260043');
+    expect(component.visibleActions[1].url).toBe('https://copiescofre.bnc.cat/documents/view/abc');
+  });
+
+  it('should ignore pnx.delivery.link entries that are not linktorsrc', async () => {
+    await configure({
+      linkActions: [
+        {
+          label: 'Text complet',
+          containsAny: 'mdc|arca',
+          icon: 'open_in_new'
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          delivery: {
+            link: [
+              {
+                linkType: 'thumbnail',
+                linkURL: 'https://mdc.csuc.cat/digital/collection/manuscritBC/id/260043'
+              }
+            ]
+          }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.length).toBe(0);
+  });
 });

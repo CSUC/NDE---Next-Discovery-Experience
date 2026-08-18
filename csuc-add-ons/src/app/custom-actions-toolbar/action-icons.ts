@@ -1,3 +1,5 @@
+const SETTINGS_OVERSCAN_PATH = 'M12 5.5 10 8h4l-2-2.5zM18.5 12 16 10v4l2.5-2zM5.5 12 8 14v-4l-2.5 2zM12 18.5 14 16h-4l2 2.5zM5 5h14v14H5V5zm0-2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z';
+
 export const ICON_PATHS: Record<string, string> = {
   bookmark: 'M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z',
   content_copy: 'M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z',
@@ -9,6 +11,8 @@ export const ICON_PATHS: Record<string, string> = {
   local_library: 'M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   open_in_new: 'M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
   request_quote: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 14H9v-2h6v2zm1-4H8v-2h8v2zm-3-3V3.5L18.5 9H13z',
+  settings_overscan: SETTINGS_OVERSCAN_PATH,
+  ic_settings_overscan_24px_cache106: SETTINGS_OVERSCAN_PATH,
   schedule: 'M11.99 2C6.48 2 2 6.48 2 12s4.48 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zM12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67V7z',
   search: 'M9.5 3a6.5 6.5 0 0 1 5.15 10.46l4.45 4.44-1.4 1.4-4.45-4.44A6.5 6.5 0 1 1 9.5 3zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z',
   send: 'M2.01 21 23 12 2.01 3 2 10l15 2-15 2 .01 7z'
