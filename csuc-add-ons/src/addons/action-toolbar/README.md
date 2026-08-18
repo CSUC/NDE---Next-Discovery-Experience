@@ -81,14 +81,19 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
       "url": "https://request.bnc.cat/peticio/crear/{pnx.control.sourcerecordid[0]}",
       "icon": "local_library",
       "target": "_blank",
-      "recordIdStartsWith": "99"
+      "rid": "99",
+      "phys": true,
+      "avail": true,
+      "own": true
     },
     {
       "label": "Demanar reproducció",
       "url": "https://www.bnc.cat/Serveis/Reproduccio-de-documents/Sol-licitud-de-reproduccio-de-documents-i-autoritzacio-d-us-public?numreg={pnx.control.sourcerecordid[0]}&mattype={pnx.display.type[0]}",
       "icon": "search",
       "target": "_blank",
-      "recordIdStartsWith": "99"
+      "rid": "99",
+      "phys": true,
+      "own": true
     },
     {
       "label": "Préstec interbibliotecari",
@@ -107,13 +112,24 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
   "linkActions": [
     {
       "label": "Text complet",
-      "containsAny": ["mdc", "arca"],
+      "containsAny": [
+        "mdc",
+        "arca",
+        "bnc.cat/content/download"
+      ],
       "icon": "open_in_new",
-      "target": "_blank"
+      "target": "_blank",
+      "prio": [
+        "arca",
+        "mdc",
+        "bnc.cat/content/download"
+      ]
     },
     {
       "label": "Reproducció d'alta qualitat (compra en línia)",
-      "containsAny": ["copiescofre"],
+      "containsAny": [
+        "copiescofre"
+      ],
       "icon": "settings_overscan",
       "target": "_blank"
     }
@@ -142,7 +158,7 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `ariaLabel`: etiqueta accessible del bloc. Opcional.
 - `baseUrl`: URL base de Primo per construir enllaços interns.
 - `actions`: botons principals de la cinta.
-- `linkActions`: botons generats a partir dels enllaços de `pnx.delivery.link`.
+- `linkActions`: botons generats a partir dels enllaços de `pnx.delivery.link` i `pnx.addata.url[]`.
 - `links`: enllaços informatius sota la cinta.
 - `includeDefaultActions`: si és `true` i no hi ha `actions`, mostra l'acció per defecte `Registre MARC`.
 
@@ -154,7 +170,11 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `target`: `_blank`, `_self`. Per defecte: `_blank`.
 - `tooltip`: tooltip opcional. Per defecte s'usa `label`.
 - `requires`: camí del context que ha de tenir valor perquè es mostri l'element. Exemple: `recordId`.
-- `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat. Exemple: `"99"`.
+- `rid`: prefix o llista de prefixos del `recordId` normalitzat. Exemple: `"99"`.
+- `recordIdStartsWith`: equivalent llarg de `rid`; es manté per compatibilitat.
+- `phys`: si és `true`, només es mostra quan `pnx.delivery.deliveryCategory[0]` és `Alma-P`.
+- `avail`: si és `true`, només es mostra quan `pnx.delivery.availability[0]` no és `no_inventory`.
+- `own`: si és `true`, només es mostra quan `pnx.delivery.recordOwner` coincideix amb el codi de la vista actual, extret del `vid` abans dels dos punts.
 
 ### Camps d'una linkAction
 
@@ -163,11 +183,16 @@ El fitxer [`action-toolbar.json`](./action-toolbar.json) conté un exemple compl
 - `icon`: icona. Opcional. Si no existeix, s'usa `link`.
 - `target`: `_blank`, `_self`. Per defecte: `_blank`.
 - `tooltip`: tooltip opcional.
-- `recordIdStartsWith`: prefix o llista de prefixos del `recordId` normalitzat.
+- `requires`: camí del context que ha de tenir valor perquè es mostri l'element.
+- `rid`: prefix o llista de prefixos del `recordId` normalitzat.
+- `recordIdStartsWith`: equivalent llarg de `rid`; es manté per compatibilitat.
+- `phys`, `avail`, `own`: mateixes condicions curtes que en una `action`.
+- `prio`: llista opcional de patrons de `containsAny` en ordre de preferència. Si no existeix, es manté l'ordre dels links rebut de Primo.
 
 Les `linkActions` llegeixen primer els objectes de `pnx.delivery.link` amb `linkType` igual a `linktorsrc` i fan el match sobre `linkURL`. També incorporen com a fallback les URL de `pnx.addata.url[]`, útil en registres on els enllaços 856 no arriben com a objectes llegibles dins de `delivery.link`. Per cada regla es genera com a màxim un botó, amb la URL del primer link coincident.
 
-`containsAny` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
+`containsAny`, `prio`, `rid` i `recordIdStartsWith` també poden indicar-se com a cadena separada per `|`, `;` o `,`. Exemple: `"mdc|arca"`.
+
 
 ## Tokens disponibles
 

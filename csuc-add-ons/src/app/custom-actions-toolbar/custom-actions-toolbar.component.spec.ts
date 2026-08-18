@@ -132,6 +132,68 @@ describe('CustomActionsToolbarComponent', () => {
     expect(component.resolveUrl(component.visibleActions[0].url)).toBe('https://request.example/991234567');
   });
 
+  it('should support short visibility flags on actions', async () => {
+    window.history.pushState({}, '', '/nde/fulldisplay?vid=34CSUC_BC:VU1');
+    await configure({
+      actions: [
+        {
+          label: 'Allowed action',
+          url: 'https://request.example/{recordId}',
+          icon: 'local_library',
+          rid: '99',
+          phys: true,
+          avail: true,
+          own: true
+        },
+        {
+          label: 'Wrong prefix',
+          url: 'https://request.example/wrong-prefix',
+          icon: 'local_library',
+          rid: '88',
+          phys: true,
+          avail: true,
+          own: true
+        },
+        {
+          label: 'Wrong availability',
+          url: 'https://request.example/wrong-availability',
+          icon: 'local_library',
+          rid: '99',
+          phys: true,
+          avail: false,
+          own: true
+        },
+        {
+          label: 'Wrong owner',
+          url: 'https://request.example/wrong-owner',
+          icon: 'local_library',
+          rid: '99',
+          phys: true,
+          avail: true,
+          own: false
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          control: { sourcerecordid: ['991234567'] },
+          delivery: {
+            deliveryCategory: ['Alma-P'],
+            availability: ['available'],
+            recordOwner: '34CSUC_BC'
+          }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.map(action => action.label)).toEqual(['Allowed action']);
+    expect(component.resolveUrl(component.visibleActions[0].url)).toBe('https://request.example/991234567');
+  });
+
   it('should generate action buttons from pnx.delivery.link linktorsrc URLs', async () => {
     await configure({
       linkActions: [
@@ -179,12 +241,49 @@ describe('CustomActionsToolbarComponent', () => {
     expect(component.visibleActions[1].url).toBe('https://copiescofre.bnc.cat/documents/view/abc');
   });
 
+  it('should prioritize link action matches when prio is configured', async () => {
+    await configure({
+      linkActions: [
+        {
+          label: 'Text complet',
+          containsAny: ['mdc', 'arca', 'bnc.cat/content/download'],
+          prio: ['arca', 'mdc', 'bnc.cat/content/download'],
+          icon: 'open_in_new'
+        }
+      ]
+    });
+    fixture = TestBed.createComponent(CustomActionsToolbarComponent);
+    component = fixture.componentInstance;
+    component.hostComponent = {
+      searchResult: {
+        pnx: {
+          delivery: {
+            link: [
+              {
+                linkType: 'linktorsrc',
+                linkURL: 'https://mdc.csuc.cat/digital/collection/manuscritBC/id/260043'
+              },
+              {
+                linkType: 'linktorsrc',
+                linkURL: 'https://arca.bnc.cat/arcabib_pro/ca/consulta/registro.do?id=2653'
+              }
+            ]
+          }
+        }
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.visibleActions.length).toBe(1);
+    expect(component.visibleActions[0].url).toBe('https://arca.bnc.cat/arcabib_pro/ca/consulta/registro.do?id=2653');
+  });
+
   it('should generate action buttons from pnx.addata.url when delivery links are not readable objects', async () => {
     await configure({
       linkActions: [
         {
           label: 'Text complet',
-          containsAny: ['mdc', 'arca'],
+          containsAny: ['mdc', 'arca', 'bnc.cat/content/download'],
           icon: 'open_in_new'
         }
       ]
